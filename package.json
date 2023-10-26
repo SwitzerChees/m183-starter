@@ -6,7 +6,7 @@
     "name": "Patrick Michel"
   },
   "scripts": {
-    "start": "node server/app.js"
+    "start": "node server/app.js | rotate-logs --config=.rotate.js"
   },
   "license": "MIT",
   "dependencies": {

@@ -2,9 +2,11 @@ const express = require("express");
 const http = require("http");
 const { rateLimit } = require("express-rate-limit");
 const { initializeAPI } = require("./api");
+const pino = require("pino-http")();
 
 // Create the express server
 const app = express();
+app.use(pino);
 const limiter = rateLimit({
   windowMs: 60 * 1000, // 1 Minute
   limit: 50, // limit each IP to 50 requests per windowMs

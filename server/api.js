@@ -16,19 +16,24 @@ aes.setSecretKey(
 const authMiddleware = (req, res, next) => {
   const authorization = req.headers.authorization;
   if (!authorization) {
+    req.log.error("No authorization header.");
     return res.status(401).json({ error: "No authorization header." });
   }
   const [prefix, token] = authorization.split(" ");
   if (prefix !== "Bearer") {
+    req.log.error("Invalid authorization prefix.");
     return res.status(401).json({ error: "Invalid authorization prefix." });
   }
   const tokenValidation = jwt.verify(token, jwtSecret);
   if (!tokenValidation?.data) {
+    req.log.error("Invalid token.");
     return res.status(401).json({ error: "Invalid token." });
   }
   if (!tokenValidation.data.roles?.includes("viewer")) {
+    req.log.error(`User ${tokenValidation.data.username} is not a viewer.`);
     return res.status(403).json({ error: "You are not a viewer." });
   }
+  req.user = tokenValidation.data;
   next();
 };
 
@@ -59,6 +64,7 @@ const initializeAPI = async (app) => {
 };
 
 const login = async (req, res) => {
+  req.log.info("Login request received.");
   // Validate request
   const result = validationResult(req);
   if (!result.isEmpty()) {
@@ -77,11 +83,13 @@ const login = async (req, res) => {
   `;
   const user = await queryDB(db, getUserQuery);
   if (user.length === 0) {
+    req.log.warn(`User ${username} does not exist.`);
     return res
       .status(401)
       .json({ username: "Username does not exist. Or Passwort is incorrect." });
   }
   // Check if password is correct
+  req.log.info(`Checking password for user ${username}.`);
   const hash = user[0].password;
   const match = await bcrypt.compare(password, hash);
   if (!match) {
@@ -90,6 +98,7 @@ const login = async (req, res) => {
       .json({ username: "Username does not exist. Or Passwort is incorrect." });
   }
   // Create JWT
+  req.log.info(`Creating JWT for user ${username}.`);
   const token = jwt.sign(
     {
       expiresIn: "24h",
@@ -97,11 +106,12 @@ const login = async (req, res) => {
     },
     jwtSecret
   );
-
+  req.log.info(`User ${username} logged in.`);
   return res.send(token);
 };
 
 const getPosts = async (req, res) => {
+  req.log.info(`Get posts request received from user: ${req.user.username}.`);
   const posts = await queryDB(db, "SELECT * FROM posts ORDER BY id DESC;");
   for (const post of posts) {
     try {
@@ -110,13 +120,14 @@ const getPosts = async (req, res) => {
       post.title = descryptedTitle;
       post.content = descryptedContent;
     } catch {
-      console.log("Cannot decrypt post");
+      req.log.error(`Error decrypting post ${post.id}.`);
     }
   }
   return res.send(posts);
 };
 
 const createPost = async (req, res) => {
+  req.log.info(`Create post request received from user: ${req.user.username}.`);
   const { title, content } = req.body;
   const encryptedTitle = aes.encrypt(title);
   const encryptedContent = aes.encrypt(content);
@@ -128,6 +139,9 @@ const createPost = async (req, res) => {
 };
 
 getPublicPrivateKey = async (req, res) => {
+  req.log.info(
+    `Get public/private key request received from user: ${req.user.username}.`
+  );
   const key = new NodeRSA({ b: 1024 });
   const publicKey = key.exportKey("public");
   const privateKey = key.exportKey("private");
