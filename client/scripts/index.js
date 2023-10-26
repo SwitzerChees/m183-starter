@@ -43,9 +43,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     decrypt.setPrivateKey(keys.privateKey);
     for (const post of posts) {
       post.title = decrypt.decrypt(post.title);
-      post.title = escapeHTML(post.title);
+      if (post.title) post.title = escapeHTML(post.title);
       post.content = decrypt.decrypt(post.content);
-      post.content = escapeHTML(post.content);
+      if (post.content) post.content = escapeHTML(post.content);
 
       const postElement = document.createElement("div");
       postElement.innerHTML = `
