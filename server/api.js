@@ -1,32 +1,36 @@
 const { body, validationResult } = require("express-validator");
 const bcrypt = require("bcrypt");
 const { initializeDatabase, queryDB } = require("./database");
+const AesEncryption = require("aes-encryption");
+const NodeRSA = require("node-rsa");
 const jwt = require("jsonwebtoken");
 
 let db;
-
 const jwtSecret = process.env.JWT_SECRET || "supersecret";
+const aes = new AesEncryption();
+aes.setSecretKey(
+  process.env.SECRET ||
+    "11122233344455566677788822244455555555555555555231231321313aaaff"
+);
 
-const posts = [
-  {
-    id: 1,
-    title: "Introduction to JavaScript",
-    content:
-      "JavaScript is a dynamic language primarily used for web development...",
-  },
-  {
-    id: 2,
-    title: "Functional Programming",
-    content:
-      "Functional programming is a paradigm where functions take center stage...",
-  },
-  {
-    id: 3,
-    title: "Asynchronous Programming in JS",
-    content:
-      "Asynchronous programming allows operations to run in parallel without blocking the main thread...",
-  },
-];
+const authMiddleware = (req, res, next) => {
+  const authorization = req.headers.authorization;
+  if (!authorization) {
+    return res.status(401).json({ error: "No authorization header." });
+  }
+  const [prefix, token] = authorization.split(" ");
+  if (prefix !== "Bearer") {
+    return res.status(401).json({ error: "Invalid authorization prefix." });
+  }
+  const tokenValidation = jwt.verify(token, jwtSecret);
+  if (!tokenValidation?.data) {
+    return res.status(401).json({ error: "Invalid token." });
+  }
+  if (!tokenValidation.data.roles?.includes("viewer")) {
+    return res.status(403).json({ error: "You are not a viewer." });
+  }
+  next();
+};
 
 const initializeAPI = async (app) => {
   db = initializeDatabase();
@@ -43,7 +47,15 @@ const initializeAPI = async (app) => {
       .escape(),
     login
   );
-  app.get("/api/posts", getPosts);
+  app.get("/api/posts", authMiddleware, getPosts);
+  app.post(
+    "/api/posts",
+    authMiddleware,
+    body("title").notEmpty().withMessage("title is required."),
+    body("content").notEmpty().withMessage("content is required."),
+    createPost
+  );
+  app.get("/api/keys", getPublicPrivateKey);
 };
 
 const login = async (req, res) => {
@@ -89,23 +101,37 @@ const login = async (req, res) => {
   return res.send(token);
 };
 
-const getPosts = (req, res) => {
-  const authorization = req.headers.authorization;
-  if (!authorization) {
-    return res.status(401).json({ error: "No authorization header." });
-  }
-  const [prefix, token] = authorization.split(" ");
-  if (prefix !== "Bearer") {
-    return res.status(401).json({ error: "Invalid authorization prefix." });
-  }
-  const tokenValidation = jwt.verify(token, jwtSecret);
-  if (!tokenValidation?.data) {
-    return res.status(401).json({ error: "Invalid token." });
-  }
-  if (!tokenValidation.data.roles?.includes("viewer")) {
-    return res.status(403).json({ error: "You are not a viewer." });
+const getPosts = async (req, res) => {
+  const posts = await queryDB(db, "SELECT * FROM posts ORDER BY id DESC;");
+  for (const post of posts) {
+    try {
+      const descryptedTitle = aes.decrypt(post.title);
+      const descryptedContent = aes.decrypt(post.content);
+      post.title = descryptedTitle;
+      post.content = descryptedContent;
+    } catch {
+      console.log("Cannot decrypt post");
+    }
   }
   return res.send(posts);
+};
+
+const createPost = async (req, res) => {
+  const { title, content } = req.body;
+  const encryptedTitle = aes.encrypt(title);
+  const encryptedContent = aes.encrypt(content);
+  const createPostQuery = `
+    INSERT INTO posts (title, content) VALUES ('${encryptedTitle}', '${encryptedContent}');
+  `;
+  await queryDB(db, createPostQuery);
+  return res.send({ success: true });
+};
+
+getPublicPrivateKey = async (req, res) => {
+  const key = new NodeRSA({ b: 1024 });
+  const publicKey = key.exportKey("public");
+  const privateKey = key.exportKey("private");
+  return res.send({ publicKey, privateKey });
 };
 
 module.exports = { initializeAPI };
