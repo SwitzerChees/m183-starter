@@ -6,6 +6,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const resultText = document.getElementById("result");
 
   const login = async (username, password) => {
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailPattern.test(username)) {
+      resultText.innerHTML = "Invalid E-Mail";
+      return;
+    }
+    if (!password || password.length < 10) {
+      resultText.innerHTML = "Password must be at least 10 characters.";
+      return;
+    }
     const response = await fetch("/api/login", {
       method: "POST",
       headers: {

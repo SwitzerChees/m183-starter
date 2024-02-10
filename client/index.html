@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mini Twitter</title>
+    <title>M183 Starter</title>
     <link rel="stylesheet" href="/styles.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/scripts/index.js"></script>
@@ -21,17 +21,19 @@
         <div id="feed" class="flex flex-col w-full gap-2">
           <div class="flex flex-col w-full gap-2">
             <input
-              id="username"
-              placeholder="Username"
-              type="text"
-              class="w-full p-2 px-4 placeholder-gray-200 rounded bg-slate-400 grow"
-            />
-            <input
-              id="password"
-              placeholder="Password"
-              type="password"
-              class="w-full p-2 px-4 placeholder-gray-200 rounded bg-slate-400 grow"
-            />
+            id="username"
+            placeholder="Username"
+            type="email"
+            required
+            class="w-full p-2 px-4 placeholder-gray-200 rounded bg-slate-400 grow"
+          />
+          <input
+            id="password"
+            placeholder="Password"
+            type="password"
+            required
+            class="w-full p-2 px-4 placeholder-gray-200 rounded bg-slate-400 grow"
+          />
             <div class="grid grid-cols-2 gap-2">
               <button
                 id="login"
